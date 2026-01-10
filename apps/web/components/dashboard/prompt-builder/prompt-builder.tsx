@@ -1,0 +1,270 @@
+"use client";
+
+import * as React from "react";
+import { Crown, ChevronDown } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { ContextManagerModal } from "./context-manager-modal";
+import { GeneratedPromptCard } from "./generated-prompt-card";
+import { SaveModal } from "./save-modal";
+import { useLibrary } from "@/lib/contexts/library-context";
+import type { SavePromptData } from "@/lib/types";
+
+interface ContextItem {
+  id: string;
+  title: string;
+  content: string;
+}
+
+const STORAGE_KEY_CONTEXTS = "prompt-manager-contexts";
+
+export function PromptBuilder() {
+  const [prompt, setPrompt] = React.useState("");
+  const [generatedPrompt, setGeneratedPrompt] = React.useState<string | null>(
+    null,
+  );
+  const [primerMode, setPrimerMode] = React.useState<
+    "Basic" | "Advanced" | "Pro"
+  >("Basic");
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const [isContextModalOpen, setIsContextModalOpen] = React.useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = React.useState(false);
+  const [savedContexts, setSavedContexts] = React.useState<ContextItem[]>([]);
+  const [activeContext, setActiveContext] = React.useState<ContextItem | null>(
+    null,
+  );
+
+  const { libraries, addPromptToLibraries } = useLibrary();
+
+  // Load saved contexts and active context from localStorage on mount
+  React.useEffect(() => {
+    // Load saved contexts from localStorage (but NOT active context)
+    // Active context must always be null on page load - user must explicitly select
+    try {
+      const savedContextsData = localStorage.getItem(STORAGE_KEY_CONTEXTS);
+      if (savedContextsData) {
+        const contexts = JSON.parse(savedContextsData) as ContextItem[];
+        setSavedContexts(contexts);
+      }
+      // DO NOT auto-load active context - it must remain null until user explicitly selects
+    } catch (error) {
+      console.error("Failed to load contexts from localStorage:", error);
+    }
+  }, []);
+
+  // Save contexts to localStorage whenever they change
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_CONTEXTS, JSON.stringify(savedContexts));
+    } catch (error) {
+      console.error("Failed to save contexts to localStorage:", error);
+    }
+  }, [savedContexts]);
+
+  // Note: We intentionally do NOT persist active context to localStorage
+  // Context must be explicitly selected by user on each session
+
+  const handleSaveContext = (newContext: Omit<ContextItem, "id">) => {
+    const contextWithId: ContextItem = {
+      id: `ctx_${Date.now()}`,
+      ...newContext,
+    };
+
+    // Add to saved contexts
+    setSavedContexts((prev) => [...prev, contextWithId]);
+
+    // DO NOT auto-select - user must explicitly select context from the list
+    // Context remains null until user clicks on it in the context selection popup
+  };
+
+  const handleSelectContext = (context: ContextItem | null) => {
+    setActiveContext(context);
+  };
+
+  const handleGeneratePrompt = () => {
+    let finalPrompt = prompt;
+
+    // Prepend context content if active context exists
+    if (activeContext) {
+      finalPrompt = activeContext.content + "\n\n" + prompt;
+    }
+
+    // Set the generated prompt for display
+    setGeneratedPrompt(finalPrompt);
+
+    console.log("Generated prompt:", finalPrompt);
+    console.log("Active context:", activeContext?.title || "None");
+    console.log("Primer mode:", primerMode);
+  };
+
+  const handleRegenerate = () => {
+    // Regenerate with same inputs
+    handleGeneratePrompt();
+  };
+
+  const handleSavePrompt = (data: SavePromptData) => {
+    if (!generatedPrompt) return;
+
+    // Create prompt object
+    const promptData = {
+      title: data.title,
+      content: generatedPrompt,
+      variables: [],
+      logicLevel: primerMode.toLowerCase() as "basic" | "advanced" | "pro",
+      contextId: activeContext?.id || null,
+      folderId: data.folderId,
+      libraryId: null,
+      tags: data.tags,
+      isQuickSaved: false,
+    };
+
+    // Add to selected libraries
+    addPromptToLibraries(promptData, data.libraryIds);
+
+    console.log("Prompt saved to libraries:", data.libraryIds);
+  };
+
+  return (
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto items-center pt-4 px-4 sm:px-8">
+      {/* Generated Prompt Output (Top) */}
+      {generatedPrompt && (
+        <div className="w-full mb-4">
+          <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">
+            Generated Prompt
+          </h2>
+          <GeneratedPromptCard
+            content={generatedPrompt}
+            onRegenerate={handleRegenerate}
+            onSave={() => setIsSaveModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* Main Input Area */}
+      <div className="w-full space-y-4">
+        <div className="relative rounded-xl border bg-card shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1 focus-within:ring-ring">
+          <Textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Enhance your conversations..."
+            className="min-h-40 w-full resize-none border-0 bg-transparent p-6 text-base placeholder:text-muted-foreground/50 focus-visible:ring-0"
+          />
+
+          {/* Bottom Toolbar */}
+          <div className="flex items-center justify-between p-4 pt-0">
+            <div className="flex items-center gap-2">
+              <DropdownMenu
+                open={isDropdownOpen}
+                onOpenChange={setIsDropdownOpen}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-9 px-3 text-primary border-primary/20 hover:bg-primary/10 hover:text-primary"
+                  >
+                    <span className="mr-2 rounded-full border border-current p-0.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-current" />
+                    </span>
+                    {primerMode}
+                    <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => setPrimerMode("Basic")}>
+                    Basic {primerMode === "Basic" && "✓"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setPrimerMode("Advanced")}>
+                    Advanced {primerMode === "Advanced" && "✓"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setPrimerMode("Pro")}>
+                    Pro {primerMode === "Pro" && "✓"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="outline"
+                onClick={() => setIsContextModalOpen(true)}
+                className={
+                  activeContext
+                    ? "h-9 px-3 text-orange-600 dark:text-orange-500 border-orange-600/30 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50"
+                    : "h-9 px-3 text-muted-foreground border-dashed border-muted-foreground/30 hover:bg-muted/50"
+                }
+              >
+                <Crown
+                  className={
+                    activeContext
+                      ? "mr-2 h-3 w-3 fill-current"
+                      : "mr-2 h-3 w-3 text-primary"
+                  }
+                />
+                {activeContext ? activeContext.title : "Context (Pro)"}
+              </Button>
+            </div>
+
+            <Button
+              className="h-9 font-medium px-6 shadow-sm"
+              onClick={handleGeneratePrompt}
+              disabled={!prompt.trim()}
+            >
+              Generate Prompt
+            </Button>
+          </div>
+        </div>
+
+        {/* Suggestion Chips */}
+        <div className="w-full overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+          <div className="flex flex-wrap justify-center gap-2 min-w-max sm:min-w-0">
+            {[
+              "Write user stories for...",
+              "Outline a PRD for...",
+              "Analyze competitors of...",
+              "Define KPIs for...",
+              "Create a user persona for...",
+              "Brainstorm A/B tests for...",
+              "Summarize customer feedback about...",
+              "Draft a GTM plan for...",
+              "Prioritize features using...",
+            ].map((label) => (
+              <Badge
+                key={label}
+                variant="outline"
+                className="cursor-pointer rounded-full border-muted-foreground/20 px-4 py-1.5 text-sm font-normal text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/10 hover:text-primary"
+                onClick={() => setPrompt(label)}
+              >
+                {label}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Context Manager Modal */}
+      <ContextManagerModal
+        open={isContextModalOpen}
+        onOpenChange={setIsContextModalOpen}
+        activeContext={activeContext}
+        onSelectContext={handleSelectContext}
+        savedContexts={savedContexts}
+        onSaveContext={handleSaveContext}
+      />
+
+      {/* Save Prompt Modal */}
+      <SaveModal
+        open={isSaveModalOpen}
+        onOpenChange={setIsSaveModalOpen}
+        onSave={handleSavePrompt}
+        libraries={libraries}
+        defaultContent={generatedPrompt || ""}
+      />
+    </div>
+  );
+}
