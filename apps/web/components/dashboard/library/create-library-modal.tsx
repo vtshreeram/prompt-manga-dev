@@ -60,7 +60,7 @@ export function CreateLibraryModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create Library</DialogTitle>
+          <DialogTitle>New Library</DialogTitle>
           <DialogDescription>
             Create a library to organize and save your prompts
           </DialogDescription>
@@ -87,7 +87,7 @@ export function CreateLibraryModal({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate}>Create Library</Button>
+          <Button onClick={handleCreate}>New Library</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

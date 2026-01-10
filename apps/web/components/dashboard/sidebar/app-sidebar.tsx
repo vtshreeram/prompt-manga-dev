@@ -14,6 +14,7 @@ import {
   MessageSquare,
   FileText,
 } from "lucide-react";
+import { usePrompt } from "@/lib/contexts/prompt-context";
 
 import {
   Sidebar,
@@ -47,6 +48,7 @@ import { CreateLibraryModal } from "@/components/dashboard/library/create-librar
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { libraries, createLibrary, isLoading } = useLibrary();
+  const { resetPrompt } = usePrompt();
   const [isCreateLibraryOpen, setIsCreateLibraryOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
 
@@ -67,36 +69,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarHeader className="pb-0">
           <SidebarMenu>
             <SidebarMenuItem>
-              <div className="flex items-center gap-2 px-2 py-3">
+              <div className="flex items-center gap-2 px-2 py-2">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                   <Ghost className="size-5" />
                 </div>
                 <div className="flex-1 text-left text-lg font-bold leading-tight group-data-[collapsible=icon]:hidden">
-                  Prompt Manager
+                  Prompt Manga
                 </div>
               </div>
             </SidebarMenuItem>
           </SidebarMenu>
 
-          <div className="flex gap-2 px-2 py-2 group-data-[collapsible=icon]:hidden">
+          <div className="flex gap-2 px-2 pb-2 group-data-[collapsible=icon]:hidden">
             <Button
               variant="outline"
-              className="flex-1 justify-center border-primary/20 text-primary hover:bg-primary/10 hover:text-primary h-9 px-3"
+              className="flex-1 justify-center border-primary/20 text-primary hover:bg-primary/10 hover:text-primary h-9"
+              onClick={resetPrompt}
             >
-              <Plus className="mr-2 size-4" />
+              <Plus className="mr-1.5 size-4" />
               New
             </Button>
             <Button
               variant="outline"
-              className="flex-1 justify-center h-9 px-3"
+              className="flex-1 justify-center h-9"
               onClick={() => setIsCreateLibraryOpen(true)}
             >
-              <FolderPlus className="mr-2 size-4" />
-              Create Library
+              <FolderPlus className="mr-1.5 size-4" />
+              New Library
             </Button>
           </div>
 
-          <div className="px-2 pb-4 group-data-[collapsible=icon]:hidden">
+          <div className="px-2 pb-3 group-data-[collapsible=icon]:hidden">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -267,7 +270,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarRail />
       </Sidebar>
 
-      {/* Create Library Modal */}
+      {/* New Library Modal */}
       <CreateLibraryModal
         open={isCreateLibraryOpen}
         onOpenChange={setIsCreateLibraryOpen}

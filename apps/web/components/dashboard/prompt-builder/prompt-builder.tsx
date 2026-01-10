@@ -5,7 +5,6 @@ import { Crown, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -16,6 +15,7 @@ import { ContextManagerModal } from "./context-manager-modal";
 import { GeneratedPromptCard } from "./generated-prompt-card";
 import { SaveModal } from "./save-modal";
 import { useLibrary } from "@/lib/contexts/library-context";
+import { usePrompt } from "@/lib/contexts/prompt-context";
 import type { SavePromptData } from "@/lib/types";
 
 interface ContextItem {
@@ -43,18 +43,16 @@ export function PromptBuilder() {
   );
 
   const { libraries, addPromptToLibraries } = useLibrary();
+  const { onReset } = usePrompt();
 
   // Load saved contexts and active context from localStorage on mount
   React.useEffect(() => {
-    // Load saved contexts from localStorage (but NOT active context)
-    // Active context must always be null on page load - user must explicitly select
     try {
       const savedContextsData = localStorage.getItem(STORAGE_KEY_CONTEXTS);
       if (savedContextsData) {
         const contexts = JSON.parse(savedContextsData) as ContextItem[];
         setSavedContexts(contexts);
       }
-      // DO NOT auto-load active context - it must remain null until user explicitly selects
     } catch (error) {
       console.error("Failed to load contexts from localStorage:", error);
     }
@@ -69,20 +67,24 @@ export function PromptBuilder() {
     }
   }, [savedContexts]);
 
-  // Note: We intentionally do NOT persist active context to localStorage
-  // Context must be explicitly selected by user on each session
+  // Register reset callback for when "New" button is clicked
+  React.useEffect(() => {
+    return onReset(() => {
+      setPrompt("");
+      setGeneratedPrompt(null);
+      setPrimerMode("Basic");
+      setActiveContext(null);
+      setIsContextModalOpen(false);
+      setIsSaveModalOpen(false);
+    });
+  }, [onReset]);
 
   const handleSaveContext = (newContext: Omit<ContextItem, "id">) => {
     const contextWithId: ContextItem = {
       id: `ctx_${Date.now()}`,
       ...newContext,
     };
-
-    // Add to saved contexts
     setSavedContexts((prev) => [...prev, contextWithId]);
-
-    // DO NOT auto-select - user must explicitly select context from the list
-    // Context remains null until user clicks on it in the context selection popup
   };
 
   const handleSelectContext = (context: ContextItem | null) => {
@@ -128,121 +130,110 @@ export function PromptBuilder() {
 
     // Add to selected libraries
     addPromptToLibraries(promptData, data.libraryIds);
-
     console.log("Prompt saved to libraries:", data.libraryIds);
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto items-center pt-4 px-4 sm:px-8">
-      {/* Generated Prompt Output (Top) */}
-      {generatedPrompt && (
-        <div className="w-full mb-4">
-          <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">
-            Generated Prompt
-          </h2>
-          <GeneratedPromptCard
-            content={generatedPrompt}
-            onRegenerate={handleRegenerate}
-            onSave={() => setIsSaveModalOpen(true)}
-          />
+    <div className="flex flex-col h-full w-full">
+      {/* Scrollable Content Area */}
+      {/*
+        This area takes the remaining height and handles its own scrolling.
+        This creates the effect of a fixed footer without using position: fixed,
+        which ensures better compatibility with the sidebar layout.
+      */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
+        <div className="max-w-4xl mx-auto w-full">
+          {generatedPrompt && (
+            <div className="w-full mb-8">
+              <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+                Generated Prompt
+              </h2>
+              <GeneratedPromptCard
+                content={generatedPrompt}
+                onRegenerate={handleRegenerate}
+                onSave={() => setIsSaveModalOpen(true)}
+              />
+            </div>
+          )}
+          {/* Spacer or additional content can go here */}
         </div>
-      )}
+      </div>
 
-      {/* Main Input Area */}
-      <div className="w-full space-y-4">
-        <div className="relative rounded-xl border bg-card shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1 focus-within:ring-ring">
-          <Textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Enhance your conversations..."
-            className="min-h-40 w-full resize-none border-0 bg-transparent p-6 text-base placeholder:text-muted-foreground/50 focus-visible:ring-0"
-          />
+      {/* Static Footer Input Area */}
+      {/*
+         Stays at the bottom of the container (which is h-full).
+         Acts as the "Fixed Footer" requested.
+      */}
+      <div className="flex-none p-4 bg-background border-t z-10">
+        <div className="max-w-4xl mx-auto w-full">
+          <div className="relative rounded-xl border bg-card shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1 focus-within:ring-ring">
+            <Textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Enhance your conversations..."
+              className="min-h-20 w-full resize-none border-0 bg-transparent px-4 py-3 text-base placeholder:text-muted-foreground/50 focus-visible:ring-0"
+            />
 
-          {/* Bottom Toolbar */}
-          <div className="flex items-center justify-between p-4 pt-0">
-            <div className="flex items-center gap-2">
-              <DropdownMenu
-                open={isDropdownOpen}
-                onOpenChange={setIsDropdownOpen}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-9 px-3 text-primary border-primary/20 hover:bg-primary/10 hover:text-primary"
-                  >
-                    <span className="mr-2 rounded-full border border-current p-0.5">
-                      <div className="h-1.5 w-1.5 rounded-full bg-current" />
-                    </span>
-                    {primerMode}
-                    <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => setPrimerMode("Basic")}>
-                    Basic {primerMode === "Basic" && "✓"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setPrimerMode("Advanced")}>
-                    Advanced {primerMode === "Advanced" && "✓"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setPrimerMode("Pro")}>
-                    Pro {primerMode === "Pro" && "✓"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {/* Bottom Toolbar */}
+            <div className="flex items-center justify-between px-4 pb-2 pt-0">
+              <div className="flex items-center gap-2">
+                <DropdownMenu
+                  open={isDropdownOpen}
+                  onOpenChange={setIsDropdownOpen}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-9 px-3 text-primary border-primary/20 hover:bg-primary/10 hover:text-primary"
+                    >
+                      <span className="mr-2 rounded-full border border-current p-0.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-current" />
+                      </span>
+                      {primerMode}
+                      <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setPrimerMode("Basic")}>
+                      Basic {primerMode === "Basic" && "✓"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setPrimerMode("Advanced")}>
+                      Advanced {primerMode === "Advanced" && "✓"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setPrimerMode("Pro")}>
+                      Pro {primerMode === "Pro" && "✓"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              <Button
-                variant="outline"
-                onClick={() => setIsContextModalOpen(true)}
-                className={
-                  activeContext
-                    ? "h-9 px-3 text-orange-600 dark:text-orange-500 border-orange-600/30 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50"
-                    : "h-9 px-3 text-muted-foreground border-dashed border-muted-foreground/30 hover:bg-muted/50"
-                }
-              >
-                <Crown
+                <Button
+                  variant="outline"
+                  onClick={() => setIsContextModalOpen(true)}
                   className={
                     activeContext
-                      ? "mr-2 h-3 w-3 fill-current"
-                      : "mr-2 h-3 w-3 text-primary"
+                      ? "h-9 px-3 text-orange-600 dark:text-orange-500 border-orange-600/30 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50"
+                      : "h-9 px-3 text-muted-foreground border-dashed border-muted-foreground/30 hover:bg-muted/50"
                   }
-                />
-                {activeContext ? activeContext.title : "Context (Pro)"}
+                >
+                  <Crown
+                    className={
+                      activeContext
+                        ? "mr-2 h-3 w-3 fill-current"
+                        : "mr-2 h-3 w-3 text-primary"
+                    }
+                  />
+                  {activeContext ? activeContext.title : "Context (Pro)"}
+                </Button>
+              </div>
+
+              <Button
+                className="h-9 font-medium px-6 shadow-sm"
+                onClick={handleGeneratePrompt}
+                disabled={!prompt.trim()}
+              >
+                Generate Prompt
               </Button>
             </div>
-
-            <Button
-              className="h-9 font-medium px-6 shadow-sm"
-              onClick={handleGeneratePrompt}
-              disabled={!prompt.trim()}
-            >
-              Generate Prompt
-            </Button>
-          </div>
-        </div>
-
-        {/* Suggestion Chips */}
-        <div className="w-full overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-          <div className="flex flex-wrap justify-center gap-2 min-w-max sm:min-w-0">
-            {[
-              "Write user stories for...",
-              "Outline a PRD for...",
-              "Analyze competitors of...",
-              "Define KPIs for...",
-              "Create a user persona for...",
-              "Brainstorm A/B tests for...",
-              "Summarize customer feedback about...",
-              "Draft a GTM plan for...",
-              "Prioritize features using...",
-            ].map((label) => (
-              <Badge
-                key={label}
-                variant="outline"
-                className="cursor-pointer rounded-full border-muted-foreground/20 px-4 py-1.5 text-sm font-normal text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/10 hover:text-primary"
-                onClick={() => setPrompt(label)}
-              >
-                {label}
-              </Badge>
-            ))}
           </div>
         </div>
       </div>

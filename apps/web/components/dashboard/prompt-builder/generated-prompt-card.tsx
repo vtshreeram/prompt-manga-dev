@@ -51,7 +51,7 @@ export function GeneratedPromptCard({
       )}
     >
       {/* Action Icons */}
-      <div className="absolute top-3 right-3 flex items-center gap-1">
+      <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
         <TooltipProvider>
           {/* Copy Button */}
           <Tooltip>
@@ -60,7 +60,7 @@ export function GeneratedPromptCard({
                 variant="ghost"
                 size="icon-sm"
                 onClick={handleCopy}
-                className="h-8 w-8 hover:bg-background/80"
+                className="h-7 w-7 hover:bg-background/80"
               >
                 {copied ? (
                   <Check className="h-4 w-4 text-green-600" />
@@ -83,7 +83,7 @@ export function GeneratedPromptCard({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onRegenerate}
-                  className="h-8 w-8 hover:bg-background/80"
+                  className="h-7 w-7 hover:bg-background/80"
                 >
                   <RotateCw className="h-4 w-4" />
                   <span className="sr-only">Regenerate</span>
@@ -103,7 +103,7 @@ export function GeneratedPromptCard({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onSave}
-                  className="h-8 w-8 hover:bg-background/80 hover:text-primary"
+                  className="h-7 w-7 hover:bg-background/80 hover:text-primary"
                 >
                   <Save className="h-4 w-4" />
                   <span className="sr-only">Save to library</span>
@@ -117,7 +117,7 @@ export function GeneratedPromptCard({
         </TooltipProvider>
       </div>
 
-      <CardContent className="pt-6 pb-4 pr-20">
+      <CardContent className="pt-3 pb-2 pr-14 pl-4">
         <div className="prose prose-sm max-w-none dark:prose-invert">
           <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
             {content}
