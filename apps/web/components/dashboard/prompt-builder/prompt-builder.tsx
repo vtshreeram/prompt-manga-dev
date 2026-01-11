@@ -25,6 +25,7 @@ interface ContextItem {
 }
 
 const STORAGE_KEY_CONTEXTS = "prompt-manager-contexts";
+const STORAGE_KEY_ACTIVE_CONTEXT = "prompt-manager-active-context";
 
 export function PromptBuilder() {
   const [prompt, setPrompt] = React.useState("");
@@ -49,9 +50,19 @@ export function PromptBuilder() {
   React.useEffect(() => {
     try {
       const savedContextsData = localStorage.getItem(STORAGE_KEY_CONTEXTS);
+      const activeContextId = localStorage.getItem(STORAGE_KEY_ACTIVE_CONTEXT);
+
       if (savedContextsData) {
         const contexts = JSON.parse(savedContextsData) as ContextItem[];
         setSavedContexts(contexts);
+
+        // Restore active context if it exists in saved list
+        if (activeContextId) {
+          const active = contexts.find((c) => c.id === activeContextId);
+          if (active) {
+            setActiveContext(active);
+          }
+        }
       }
     } catch (error) {
       console.error("Failed to load contexts from localStorage:", error);
@@ -66,6 +77,19 @@ export function PromptBuilder() {
       console.error("Failed to save contexts to localStorage:", error);
     }
   }, [savedContexts]);
+
+  // Save active context ID to localStorage whenever it changes
+  React.useEffect(() => {
+    try {
+      if (activeContext) {
+        localStorage.setItem(STORAGE_KEY_ACTIVE_CONTEXT, activeContext.id);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_ACTIVE_CONTEXT);
+      }
+    } catch (error) {
+      console.error("Failed to save active context to localStorage:", error);
+    }
+  }, [activeContext]);
 
   // Register reset callback for when "New" button is clicked
   React.useEffect(() => {
@@ -85,6 +109,8 @@ export function PromptBuilder() {
       ...newContext,
     };
     setSavedContexts((prev) => [...prev, contextWithId]);
+    setActiveContext(contextWithId);
+    setIsContextModalOpen(false);
   };
 
   const handleSelectContext = (context: ContextItem | null) => {
@@ -142,10 +168,11 @@ export function PromptBuilder() {
         which ensures better compatibility with the sidebar layout.
       */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-        <div className="max-w-4xl mx-auto w-full">
+        <div className="grid-layout">
+          <div className="col-span-4 md:col-span-8">
           {generatedPrompt && (
             <div className="w-full mb-8">
-              <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+              <h2 className="text-body-small font-semibold text-muted-foreground mb-2">
                 Generated Prompt
               </h2>
               <GeneratedPromptCard
@@ -156,6 +183,7 @@ export function PromptBuilder() {
             </div>
           )}
           {/* Spacer or additional content can go here */}
+          </div>
         </div>
       </div>
 
@@ -165,13 +193,14 @@ export function PromptBuilder() {
          Acts as the "Fixed Footer" requested.
       */}
       <div className="flex-none p-4 bg-background border-t z-10">
-        <div className="max-w-4xl mx-auto w-full">
+        <div className="grid-layout">
+          <div className="col-span-4 md:col-span-8">
           <div className="relative rounded-xl border bg-card shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1 focus-within:ring-ring">
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Enhance your conversations..."
-              className="min-h-20 w-full resize-none border-0 bg-transparent px-4 py-3 text-base placeholder:text-muted-foreground/50 focus-visible:ring-0"
+              className="min-h-20 w-full resize-none border-0 bg-transparent px-4 py-3 text-body placeholder:text-muted-foreground/50 focus-visible:ring-0"
             />
 
             {/* Bottom Toolbar */}
@@ -183,8 +212,8 @@ export function PromptBuilder() {
                 >
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant="outline"
-                      className="h-9 px-3 text-primary border-primary/20 hover:bg-primary/10 hover:text-primary"
+                      variant="outline-brand"
+                      className="h-9 px-3"
                     >
                       <span className="mr-2 rounded-full border border-current p-0.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -211,7 +240,7 @@ export function PromptBuilder() {
                   onClick={() => setIsContextModalOpen(true)}
                   className={
                     activeContext
-                      ? "h-9 px-3 text-orange-600 dark:text-orange-500 border-orange-600/30 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50"
+                      ? "h-9 px-3 text-orange-600 dark:text-orange-500 border-orange-600/30 bg-orange-500/10 hover:bg-orange-500/20"
                       : "h-9 px-3 text-muted-foreground border-dashed border-muted-foreground/30 hover:bg-muted/50"
                   }
                 >
@@ -234,6 +263,7 @@ export function PromptBuilder() {
                 Generate Prompt
               </Button>
             </div>
+          </div>
           </div>
         </div>
       </div>
